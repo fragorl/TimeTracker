@@ -2,6 +2,8 @@ package com.fragorl.timetracker.jobs;
 
 import com.fragorl.timetracker.persistence.PersistenceManager;
 import com.fragorl.timetracker.time.TimeSegment;
+import com.google.common.base.Function;
+import com.google.common.collect.Lists;
 import com.sun.istack.internal.Nullable;
 
 import java.util.ArrayList;
@@ -26,11 +28,15 @@ public class JobsManager {
     }
 
     private List<JobsChangedListener> jobsChangedListeners;
+    private List<ActiveJobChangedListener> activeJobChangedListeners;
     private List<Job> allJobsAtLastSync;
+    private @Nullable String activeJobIdAtLastSync;
 
     JobsManager() {
         jobsChangedListeners = Collections.synchronizedList(new ArrayList<>());
+        activeJobChangedListeners = Collections.synchronizedList(new ArrayList<>());
         allJobsAtLastSync = new ArrayList<>();
+        activeJobIdAtLastSync = null;
     }
 
     public static Job createJob(String name, String description) {
@@ -42,7 +48,6 @@ public class JobsManager {
         Job job = new Job(name, uuid.toString(), description);
         PersistenceManager.saveJob(job);
         syncJobsInternal();
-        jobsChanged();
         return job;
     }
 
@@ -54,7 +59,15 @@ public class JobsManager {
         PersistenceManager.saveActiveJob(jobId);
     }
 
-    public static @Nullable String getActiveJob() {
+    public static @Nullable List<TimeSegment> getTimeWorkedSegments(String jobId) {
+        return getInstance().getTimeWorkedSegmentsInternal(jobId);
+    }
+
+    private @Nullable List<TimeSegment> getTimeWorkedSegmentsInternal(String jobId) {
+        return PersistenceManager.getTimeWorkedSegments(jobId);
+    }
+
+    public static @Nullable String getActiveJobId() {
         return getInstance().getActiveJobInternal();
     }
 
@@ -70,13 +83,42 @@ public class JobsManager {
         return jobsChangedListeners;
     }
 
+    public static List<ActiveJobChangedListener> getActiveJobChangedListeners() {
+        return getInstance().getActiveJobChangedListenersInternal();
+    }
+
+    private List<ActiveJobChangedListener> getActiveJobChangedListenersInternal() {
+        return activeJobChangedListeners;
+    }
+
     public static void syncJobs() {
         getInstance().syncJobsInternal();
     }
 
     public synchronized void syncJobsInternal() {
+        List<Job> newJobs = PersistenceManager.getJobs();
+        List<String> newJobIds = Lists.transform(newJobs, JOB_TO_ID_TRANSFORMER);
+        List<String> oldJobIds = Lists.transform(allJobsAtLastSync, JOB_TO_ID_TRANSFORMER);
+        boolean newJobsEqualOldJobs = newJobIds.equals(oldJobIds);
         allJobsAtLastSync.clear();
         allJobsAtLastSync.addAll(PersistenceManager.getJobs());
+        if (!newJobsEqualOldJobs) {
+            jobsChangedInternal();
+        }
+    }
+
+    public static void syncActiveJob() {
+        getInstance().syncActiveJobInternal();
+    }
+
+    public synchronized void syncActiveJobInternal() {
+        @Nullable String oldActiveJobId = activeJobIdAtLastSync;
+        activeJobIdAtLastSync = PersistenceManager.getActiveJob();
+        if (oldActiveJobId == null && activeJobIdAtLastSync != null ||
+            oldActiveJobId != null && activeJobIdAtLastSync == null ||
+            (oldActiveJobId != null && !oldActiveJobId.equals(activeJobIdAtLastSync))) {
+            activeJobChangedInternal();
+        }
     }
 
     public static List<Job> getJobs() {
@@ -84,26 +126,34 @@ public class JobsManager {
     }
 
     private synchronized List<Job> getJobsInternal() {
-        syncJobs();
         return Collections.unmodifiableList(allJobsAtLastSync);
-    }
-
-    public static void jobsChanged() {
-        getInstance().jobsChangedInternal();
     }
 
     private synchronized void jobsChangedInternal() {
         for (JobsChangedListener jobsChangedListener : jobsChangedListeners) {
             jobsChangedListener.jobsChanged();
-            // hello
         }
     }
 
-    public static void addTimeSegmentForJob(Job previouslyRunningJob, TimeSegment timeWorkedOnPreviousJob) {
-        getInstance().addTimeSegentForJobInternal(previouslyRunningJob, timeWorkedOnPreviousJob);
+    private synchronized void activeJobChangedInternal() {
+        for (ActiveJobChangedListener activeJobChangedListener: activeJobChangedListeners) {
+            activeJobChangedListener.activeJobChanged();
+        }
     }
 
-    private void addTimeSegentForJobInternal(Job previouslyRunningJob, TimeSegment timeWorkedOnPreviousJob) {
+    public static void addTimeSegmentForJob(Job job, TimeSegment timeWorked) {
+        getInstance().addTimeSegentForJobInternal(job, timeWorked);
+    }
 
+    private void addTimeSegentForJobInternal(Job job, TimeSegment timeWorked) {
+        PersistenceManager.saveTimeWorkedSegment(job.getId(), timeWorked);
+    }
+
+    private static JobToIdTransformer JOB_TO_ID_TRANSFORMER = new JobToIdTransformer();
+    private static class JobToIdTransformer implements Function<Job, String> {
+        @Override
+        public String apply(Job job) {
+            return job.getId();
+        }
     }
 }

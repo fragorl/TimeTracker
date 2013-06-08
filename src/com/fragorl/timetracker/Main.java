@@ -28,12 +28,14 @@ public class Main {
         Rectangle bounds = gc.getBounds();
 
         MainBox mainBox = new MainBox();
+        mainBox.beginTiming();
         mainFrame.add(mainBox);
 
         // initialize and do JobsManager stuff
         JobsManager.getJobsChangedListeners().add(mainBox.getJobsChangedListener());
+        JobsManager.getActiveJobChangedListeners().add(mainBox.getActiveJobChangedListener());
         JobsManager.syncJobs();
-        JobsManager.jobsChanged();
+        JobsManager.syncActiveJob();
 
         mainFrame.pack();
 

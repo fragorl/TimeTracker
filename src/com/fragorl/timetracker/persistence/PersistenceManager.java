@@ -4,6 +4,8 @@ import com.fragorl.timetracker.jobs.Job;
 import com.fragorl.timetracker.serialization.XmlSerializable;
 import com.fragorl.timetracker.serialization.XmlSerializationException;
 import com.fragorl.timetracker.serialization.XmlSerializer;
+import com.fragorl.timetracker.time.TimeSegment;
+import com.fragorl.timetracker.time.TimeSerialization;
 import com.fragorl.timetracker.util.SystemUtils;
 import com.sun.istack.internal.Nullable;
 import org.jdom2.Document;
@@ -30,8 +32,13 @@ public class PersistenceManager {
     private static final String ROOT_ELEMENT_NAME = "root";
     private static final String ACTIVE_JOB_ELEMENT_NAME = "activeJob";
     private static final String JOBS_ELEMENT_NAME = "jobs";
+    private static final String JOBS_TIME_WORKED_ELEMENT_NAME = "jobsTimeWorked";
+    private static final String JOB_TIME_WORKED_ELEMENT_NAME = "jobTimeWorked";
+    private static final String TIME_SEGMENTS_ELEMENT_NAME = "timeSegments";
+    private static final String JOB_ID_ELEMENT_NAME = "jobName";
 
     private static final PersistenceManager instance = new PersistenceManager();
+    private static final TimeSerialization.StorageType DEFAULT_STORAGE_TYPE = TimeSerialization.StorageType.EpochMillis;
 
     private File currentDatabaseFile;
     private Document currentDatabaseDocument;
@@ -116,7 +123,7 @@ public class PersistenceManager {
             root.addContent(jobsElement);
         }
         jobsElement.addContent(element);
-        writeDocumentToFile(currentDatabaseDocument);
+        writeCurrentDatabase();
     }
 
     public static void saveActiveJob(String jobIdToSave) {
@@ -132,7 +139,7 @@ public class PersistenceManager {
             currentDatabaseDocument.getRootElement().addContent(activeJobElement);
         }
         activeJobElement.setText(jobIdToSave);
-        writeDocumentToFile(currentDatabaseDocument);
+        writeCurrentDatabase();
     }
 
     public static List<Job> getJobs() {
@@ -172,6 +179,79 @@ public class PersistenceManager {
             return null;
         }
         return activeJobElement.getText();
+    }
+
+    public static @Nullable List<TimeSegment> getTimeWorkedSegments(String jobId) {
+        synchronized (instance) {
+            return instance.getTimeWorkedSegmentsInternal(jobId);
+        }
+    }
+
+    private @Nullable List<TimeSegment> getTimeWorkedSegmentsInternal(String jobId) {
+        Element timeWorkedRoot = getOrCreateTimeWorkedRoot();
+        Element jobTimeWorkedRoot = getJobTimeWorkedRootById(timeWorkedRoot, jobId);
+        if (jobTimeWorkedRoot == null) {
+            return null;
+        }
+        List<Element> timeSegmentElement = jobTimeWorkedRoot.getChild(TIME_SEGMENTS_ELEMENT_NAME).getChildren();
+        List<TimeSegment> result = new ArrayList<>();
+        for (Element childElement : timeSegmentElement) {
+            try {
+                TimeSegment timeSegment = TimeSerialization.deserialize(childElement);
+                result.add(timeSegment);
+            } catch (XmlSerializationException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return result;
+    }
+
+    public static void saveTimeWorkedSegment(String jobId, TimeSegment segment) {
+        synchronized (instance) {
+            instance.saveTimeWorkedSegmentInternal(jobId, segment);
+        }
+    }
+
+    private void saveTimeWorkedSegmentInternal(String jobId, TimeSegment segment) {
+        Element allJobsTimeWorkedRoot = getOrCreateTimeWorkedRoot();
+        Element jobTimeWorkedRoot = getJobTimeWorkedRootById(allJobsTimeWorkedRoot, jobId);
+        if (jobTimeWorkedRoot == null) {
+            jobTimeWorkedRoot = createEmptyJobTimeWorkedRoot(jobId);
+            allJobsTimeWorkedRoot.addContent(jobTimeWorkedRoot);
+        }
+        Element timeSegmentsRoot = jobTimeWorkedRoot.getChild(TIME_SEGMENTS_ELEMENT_NAME);
+        timeSegmentsRoot.addContent(TimeSerialization.serialize(segment, DEFAULT_STORAGE_TYPE));
+        writeCurrentDatabase();
+    }
+
+    private static @Nullable Element getJobTimeWorkedRootById(Element allJobsTimeWorkedRoot, String jobId) {
+        for (Element jobTimeWorkedRoot : allJobsTimeWorkedRoot.getChildren()) {
+            String idOrNull = jobTimeWorkedRoot.getChildText(JOB_ID_ELEMENT_NAME);
+            if (idOrNull != null && idOrNull.equals(jobId)) {
+                return jobTimeWorkedRoot;
+            }
+        }
+        return null;
+    }
+
+    private static Element createEmptyJobTimeWorkedRoot(String jobId) {
+        Element result = new Element(JOB_TIME_WORKED_ELEMENT_NAME);
+        result.addContent(new Element(JOB_ID_ELEMENT_NAME).setText(jobId));
+        result.addContent(new Element(TIME_SEGMENTS_ELEMENT_NAME));
+        return result;
+    }
+
+    private Element getOrCreateTimeWorkedRoot() {
+        Element rootElement = currentDatabaseDocument.getRootElement();
+        Element timeWorkedRoot = rootElement.getChild(JOBS_TIME_WORKED_ELEMENT_NAME);
+        if (timeWorkedRoot == null) {
+            rootElement.addContent(timeWorkedRoot = new Element(JOBS_TIME_WORKED_ELEMENT_NAME));
+        }
+        return timeWorkedRoot;
+    }
+
+    private void writeCurrentDatabase() {
+        writeDocumentToFile(currentDatabaseDocument);
     }
 
     /**

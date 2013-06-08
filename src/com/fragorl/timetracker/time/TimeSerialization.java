@@ -29,7 +29,7 @@ public class TimeSerialization {
             @Override
             public TimeSegment fromXml(Element element) {
                 long from = new BigInteger(element.getChild("from").getText()).longValue();
-                long to = new BigInteger(element.getChild("from").getText()).longValue();
+                long to = new BigInteger(element.getChild("to").getText()).longValue();
                 return new TimeSegment(from, to);
             }
         };

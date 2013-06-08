@@ -15,7 +15,7 @@ public class Stopwatch {
      *
      * @throws IllegalStateException if this was called when {@link #isRunning() returned true}
      */
-    public void start() {
+    public synchronized void start() {
         if (isRunning) {
             throw new IllegalStateException("can't start stopwatch when already running");
         }
@@ -27,15 +27,27 @@ public class Stopwatch {
      *
      * @throws IllegalStateException if this was called when {@link #isRunning() returned false}
      */
-    public TimeSegment stop() {
+    public synchronized TimeSegment stop() {
         if (!isRunning) {
             throw new IllegalStateException("can't stop stopwatch when not running");
         }
+        TimeSegment elapsedTime = elapsedTime();
         isRunning = false;
-        return new TimeSegment(startTime, System.currentTimeMillis());
+        return elapsedTime;
     }
 
     public boolean isRunning() {
         return isRunning;
+    }
+
+    /**
+     *
+     * @throws IllegalStateException if this was called when {@link #isRunning() returned false}
+     */
+    public synchronized TimeSegment elapsedTime() {
+        if (!isRunning) {
+            throw new IllegalStateException("can't get elapsed time when not running");
+        }
+        return new TimeSegment(startTime, System.currentTimeMillis());
     }
 }

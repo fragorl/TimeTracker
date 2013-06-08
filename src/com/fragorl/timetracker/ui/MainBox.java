@@ -1,11 +1,14 @@
 package com.fragorl.timetracker.ui;
 
+import com.fragorl.timetracker.jobs.ActiveJobChangedListener;
 import com.fragorl.timetracker.jobs.Job;
 import com.fragorl.timetracker.jobs.JobsChangedListener;
 import com.fragorl.timetracker.jobs.JobsManager;
 import com.fragorl.timetracker.time.Stopwatch;
 import com.fragorl.timetracker.time.TimeSegment;
+import com.fragorl.timetracker.util.TimeUtils;
 import com.google.common.collect.HashBiMap;
+import com.sun.istack.internal.Nullable;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -13,6 +16,7 @@ import java.awt.*;
 import java.awt.event.*;
 import java.util.*;
 import java.util.List;
+import java.util.Timer;
 
 /**
  * @author Alex
@@ -22,18 +26,52 @@ import java.util.List;
  */
 public class MainBox extends Box {
 
+    private Timer timer;
     private MainBoxJobsChangedListener jobsChangedListener;
+    private MainBoxActiveJobChangedListener activeJobChangedListener;
     private JobsBox jobsBox;
     private List<Job> jobs;
 
     public MainBox() {
         super(BoxLayout.Y_AXIS);
+
         jobsChangedListener = new MainBoxJobsChangedListener();
+        activeJobChangedListener = new MainBoxActiveJobChangedListener();
         jobsBox = new JobsBox();
         add(jobsBox);
         add(Box.createVerticalGlue());
         BottomMenuBox bottomMenuBox = new BottomMenuBox(jobsBox.getPreferredSize().width);
         add(bottomMenuBox);
+
+        // create the timer, but don't schedule any tasks yet. Otherwise it may end up running on a potentially uninitialized object.
+        timer = new Timer(true);
+    }
+
+    private boolean timerStarted = false;
+    public void beginTiming() {
+        if (timerStarted) {
+            throw new IllegalStateException("Timer already started; can't start again");
+        }
+        timer.scheduleAtFixedRate(new TimerTask() {
+            @Override
+            public void run() {
+                eachSecond();
+            }
+        }, (long)0, (long)1000);
+        timerStarted = true;
+    }
+
+    private void eachSecond() {
+        SwingUtilities.invokeLater(jobsBox::updateActiveJobElapsedTime);
+    }
+
+    private long getTimeWorkedForJobId(String jobId) {
+        long result = 0L;
+        @Nullable List<TimeSegment> existingTimeSegments = JobsManager.getTimeWorkedSegments(jobId);
+        if (existingTimeSegments != null) {
+            result += TimeUtils.getTotalTime(existingTimeSegments);
+        }
+        return result;
     }
 
     @Override
@@ -54,7 +92,7 @@ public class MainBox extends Box {
         return jobsChangedListener;
     }
 
-    public class MainBoxJobsChangedListener implements JobsChangedListener {
+    private class MainBoxJobsChangedListener implements JobsChangedListener {
         @Override
         public void jobsChanged() {
             jobs = new ArrayList<>(JobsManager.getJobs()); // anything that's doing anything with jobs needs to watch out!
@@ -62,10 +100,29 @@ public class MainBox extends Box {
         }
     }
 
+    public ActiveJobChangedListener getActiveJobChangedListener() {
+        return activeJobChangedListener;
+    }
+
+    private class MainBoxActiveJobChangedListener implements ActiveJobChangedListener {
+        @Override
+        public void activeJobChanged() {
+            @Nullable String activeJobId = JobsManager.getActiveJobId();
+            if (activeJobId != null) {
+                for (JobsBox.JobPanel panel : jobsBox.jobsToBoxes.values()) {
+                    if (activeJobId.equals(panel.job.getId())) {
+                        jobsBox.setActiveJobIfNotAlready(panel);
+                    }
+                }
+            }
+        }
+    }
+
     private class JobsBox extends Box {
         private static final int PREFERRED_JOB_PANEL_HEIGHT = 76;
         private static final int PADDING = 5;
 
+        private @Nullable Job activeJob;
         private HashBiMap<Job, JobPanel> jobsToBoxes = HashBiMap.create();
 
         public JobsBox() {
@@ -89,81 +146,94 @@ public class MainBox extends Box {
             Box panelSurroundingBox = Box.createHorizontalBox();
             panelSurroundingBox.add(Box.createHorizontalGlue());
             JobPanel jobPanel = new JobPanel(job, new Dimension((int)Math.round(getPreferredSize().getWidth()) - PADDING - PADDING, PREFERRED_JOB_PANEL_HEIGHT));
-            if (job.getId().equals(JobsManager.getActiveJob())) {
-                jobPanel.setBackground(GraphicsUtils.LIGHT_BLUE);
-            } else {
-                jobPanel.setBackground(GraphicsUtils.LIGHT_GREY);
-            }
+            jobPanel.setBackground(GraphicsUtils.LIGHT_GREY);
             panelSurroundingBox.add(jobPanel);
             panelSurroundingBox.add(Box.createHorizontalGlue());
             add(panelSurroundingBox);
             return jobPanel;
         }
 
-    }
-
-    private void setColorsForSelectedJob(JobPanel clickedOn) {
-        for (JobPanel jobPanel : jobsBox.jobsToBoxes.values()) {
-            jobPanel.setBackground(GraphicsUtils.LIGHT_GREY);
-        }
-        clickedOn.setBackground(GraphicsUtils.LIGHT_BLUE);
-        repaint();
-    }
-
-    private void startAndStopStopwatchesAndSaveProgress(JobPanel clickedOn) {
-        for (JobPanel jobPanel : jobsBox.jobsToBoxes.values()) {
-            Stopwatch stopwatch = jobPanel.stopwatch;
-            if (jobPanel != clickedOn && stopwatch.isRunning()) {
-                Job previouslyRunningJob = jobPanel.job;
-                TimeSegment timeWorkedOnPreviousJob = stopwatch.stop();
-                JobsManager.addTimeSegmentForJob(previouslyRunningJob, timeWorkedOnPreviousJob);
-            }
-        }
-        clickedOn.stopwatch.start();
-        clickedOn.setBackground(GraphicsUtils.LIGHT_BLUE);
-    }
-
-    public class JobPanel extends JPanel {
-
-        private static final int PADDING = 5;
-
-        private Job job;
-        private Stopwatch stopwatch;
-        private JLabel jobNameLabel;
-        private JLabel elapsedTimeLabel;
-
-        public JobPanel(Job job, Dimension preferredAndMaxSize) {
-            setLayout(new BorderLayout());
-            this.job = job;
-            this.stopwatch = new Stopwatch();
-            this.setPreferredSize(preferredAndMaxSize);
-            this.setMaximumSize(preferredAndMaxSize);
-            setBorder(new EmptyBorder(PADDING, PADDING, PADDING, PADDING));
-            Box internalBox = new Box(BoxLayout.X_AXIS);
-            add(internalBox, BorderLayout.CENTER);
-            jobNameLabel = new JLabel(job.getName());
-            internalBox.add(jobNameLabel);
-            internalBox.add(Box.createHorizontalGlue());
-            Box timeKeepingBox = new Box(BoxLayout.X_AXIS);
-            elapsedTimeLabel = new JLabel("0:00:00");
-            timeKeepingBox.add(elapsedTimeLabel);
-            internalBox.add(timeKeepingBox);
-            addMouseListener(new JobBoxMouseListener(this));
-        }
-
-        private class JobBoxMouseListener extends MousePressedOnlyListener {
-
-            private JobPanel jobPanel;
-
-            private JobBoxMouseListener(JobPanel jobPanel) {
-                this.jobPanel = jobPanel;
-            }
-
-            @Override
-            public void mousePressed(MouseEvent e) {
+        private void setActiveJobIfNotAlready(JobPanel jobPanel) {
+            Job job = jobPanel.job;
+            if (activeJob == null || !activeJob.getId().equals(job.getId())) {
                 JobsManager.setActiveJob(job.getId());
                 setColorsForSelectedJob(jobPanel);
                 startAndStopStopwatchesAndSaveProgress(jobPanel);
+                activeJob = job;
+            }
+        }
+
+        private void setColorsForSelectedJob(JobPanel clickedOn) {
+            for (JobPanel jobPanel : jobsBox.jobsToBoxes.values()) {
+                jobPanel.setBackground(GraphicsUtils.LIGHT_GREY);
+            }
+            clickedOn.setBackground(GraphicsUtils.LIGHT_BLUE);
+            repaint();
+        }
+
+        private void startAndStopStopwatchesAndSaveProgress(JobPanel clickedOn) {
+            for (JobPanel jobPanel : jobsBox.jobsToBoxes.values()) {
+                Stopwatch stopwatch = jobPanel.stopwatch;
+                if (jobPanel != clickedOn && stopwatch.isRunning()) {
+                    Job previouslyRunningJob = jobPanel.job;
+                    TimeSegment timeWorkedOnPreviousJob = stopwatch.stop();
+                    JobsManager.addTimeSegmentForJob(previouslyRunningJob, timeWorkedOnPreviousJob);
+                }
+            }
+            clickedOn.stopwatch.start();
+            clickedOn.setBackground(GraphicsUtils.LIGHT_BLUE);
+        }
+
+        private void updateActiveJobElapsedTime() {
+            if (activeJob != null) {
+                Job activeJob = jobsBox.activeJob;
+                long timeWorkedAlready = getTimeWorkedForJobId(activeJob.getId());
+                JobsBox.JobPanel panelForActiveJob = jobsBox.jobsToBoxes.get(activeJob);
+                if (panelForActiveJob == null) {
+                    throw new IllegalStateException("active job (which was not null) was somehow mapped to a null panel!");
+                }
+                TimeSegment elapsedTimeSegment = panelForActiveJob.stopwatch.elapsedTime();
+                timeWorkedAlready += TimeUtils.getTotalTime(Collections.singletonList(elapsedTimeSegment));
+                panelForActiveJob.setNewElapsedTime(timeWorkedAlready);
+            }
+        }
+
+        public class JobPanel extends JPanel {
+            private static final int PADDING = 5;
+
+            private Job job;
+            private Stopwatch stopwatch;
+            private JLabel jobNameLabel;
+            private JLabel elapsedTimeLabel;
+
+            public JobPanel(Job job, Dimension preferredAndMaxSize) {
+                setLayout(new BorderLayout());
+                this.job = job;
+                this.stopwatch = new Stopwatch();
+                this.setPreferredSize(preferredAndMaxSize);
+                this.setMaximumSize(preferredAndMaxSize);
+                setBorder(new EmptyBorder(PADDING, PADDING, PADDING, PADDING));
+                Box internalBox = new Box(BoxLayout.X_AXIS);
+                add(internalBox, BorderLayout.CENTER);
+                jobNameLabel = new JLabel(job.getName());
+                internalBox.add(jobNameLabel);
+                internalBox.add(Box.createHorizontalGlue());
+                Box timeKeepingBox = new Box(BoxLayout.X_AXIS);
+                elapsedTimeLabel = new JLabel(TimeUtils.convertTimeToOurFormat(getTimeWorkedForJobId(job.getId())));
+                timeKeepingBox.add(elapsedTimeLabel);
+                internalBox.add(timeKeepingBox);
+                addMouseListener(new MousePressedOnlyListener() {
+                    @Override
+                    public void mousePressed(MouseEvent e) {
+                        setActiveJobIfNotAlready(JobPanel.this);
+                    }
+                });
+            }
+
+            public void setNewElapsedTime(long elapsedTime) {
+                String labelValue = TimeUtils.convertTimeToOurFormat(elapsedTime);
+                elapsedTimeLabel.setText(labelValue);
+                repaint();
             }
         }
     }
