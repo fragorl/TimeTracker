@@ -7,6 +7,7 @@ import com.fragorl.timetracker.serialization.XmlSerializer;
 import com.fragorl.timetracker.time.TimeSegment;
 import com.fragorl.timetracker.time.TimeSerialization;
 import com.fragorl.timetracker.util.SystemUtils;
+import com.google.common.collect.ImmutableMap;
 import com.sun.istack.internal.Nullable;
 import org.jdom2.Document;
 import org.jdom2.Element;
@@ -18,6 +19,7 @@ import org.jdom2.output.XMLOutputter;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * @author Alex
@@ -116,55 +118,64 @@ public class PersistenceManager {
 
     private void saveJobInternal(Job toAdd) {
         Element element = XmlSerializer.classToXml(toAdd);
-        Element root = currentDatabaseDocument.getRootElement();
-        Element jobsElement = root.getChild(JOBS_ELEMENT_NAME);
-        if (jobsElement == null) {
-            jobsElement = new Element(JOBS_ELEMENT_NAME);
-            root.addContent(jobsElement);
-        }
-        jobsElement.addContent(element);
+        Element jobsRoot = getOrCreateJobsRoot();
+        jobsRoot.addContent(element);
         writeCurrentDatabase();
     }
 
-    public static void saveActiveJob(String jobIdToSave) {
+    /**
+     * Saves the current active job, or null
+     * @param jobIdToSave the job to save, can be null to nullify, which will remove the active job element altogether.
+     * @return true if the active job element was changed at all, false if it wasn't.
+     */
+    public static boolean saveActiveJob(@Nullable String jobIdToSave) {
         synchronized (instance) {
-            instance.saveActiveJobInternal(jobIdToSave);
+            return instance.saveActiveJobInternal(jobIdToSave);
         }
     }
 
-    private void saveActiveJobInternal(String jobIdToSave) {
+    private boolean saveActiveJobInternal(@Nullable String jobIdToSave) {
         Element activeJobElement = currentDatabaseDocument.getRootElement().getChild(ACTIVE_JOB_ELEMENT_NAME);
-        if (activeJobElement == null) {
+        boolean didActiveJobElementExistInitially = activeJobElement != null;
+        if (!didActiveJobElementExistInitially) {
             activeJobElement = new Element(ACTIVE_JOB_ELEMENT_NAME);
             currentDatabaseDocument.getRootElement().addContent(activeJobElement);
         }
-        activeJobElement.setText(jobIdToSave);
-        writeCurrentDatabase();
+        if (jobIdToSave == null) {
+            currentDatabaseDocument.getRootElement().removeContent(activeJobElement);
+            writeCurrentDatabase();
+            return didActiveJobElementExistInitially;
+        } else {
+            String oldText = activeJobElement.getText();
+            activeJobElement.setText(jobIdToSave);
+            writeCurrentDatabase();
+            return !oldText.equals(jobIdToSave);
+        }
     }
 
     public static List<Job> getJobs() {
         synchronized (instance) {
-            return instance.getJobsInternal();
+            return new ArrayList<>(instance.getJobsInternal().values());
         }
     }
 
-    private List<Job> getJobsInternal() {
-        List<Job> jobs = new ArrayList<>();
-        Element jobsElement = currentDatabaseDocument.getRootElement().getChild(JOBS_ELEMENT_NAME);
-        if (jobsElement == null) {
-            return jobs;
+    private Map<Element, Job> getJobsInternal() {
+        ImmutableMap.Builder<Element, Job> builder = ImmutableMap.builder();
+        Element jobsRoot = currentDatabaseDocument.getRootElement().getChild(JOBS_ELEMENT_NAME);
+        if (jobsRoot == null) {
+            return builder.build();
         }
-        for (Element rootChild : jobsElement.getChildren()) {
+        for (Element rootChild : jobsRoot.getChildren()) {
             try {
                 XmlSerializable deserialized = XmlSerializer.classFromXml(rootChild);
                 if (deserialized instanceof Job) {
-                    jobs.add((Job)deserialized);
+                    builder.put(rootChild, (Job) deserialized);
                 } // otherwise we don't care.
             } catch (XmlSerializationException e) {
                 throw new RuntimeException(e);
             }
         }
-        return jobs;
+        return builder.build();
     }
 
     public static @Nullable String getActiveJob() {
@@ -239,6 +250,46 @@ public class PersistenceManager {
         result.addContent(new Element(JOB_ID_ELEMENT_NAME).setText(jobId));
         result.addContent(new Element(TIME_SEGMENTS_ELEMENT_NAME));
         return result;
+    }
+
+    /**
+     * Attempts to delete a job with the given id, returning true if it existed (and was deleted), or false if it didn't (and wasn't)
+     * @param jobId the id of the job
+     * @return true a job by the id of jobId existed (and was deleted), or false if it didn't (and wasn't)
+     */
+    public static boolean deleteJob(String jobId) {
+        synchronized (instance) {
+            return instance.deleteJobInternal(jobId);
+        }
+    }
+
+    private boolean deleteJobInternal(String jobId) {
+        Map<Element, Job> elementsToJobs = getJobsInternal();
+        for (Map.Entry<Element, Job> elementToJob : elementsToJobs.entrySet()) {
+            if (elementToJob.getValue().getId().equals(jobId)) {
+                // boom, we found it.
+                Element jobsRoot = getOrCreateJobsRoot();
+                jobsRoot.removeContent(elementToJob.getKey()); // remove it from the active document
+                Element timeWorkedRoot = getOrCreateTimeWorkedRoot();
+                @Nullable Element timeWorkedElementForJob = getJobTimeWorkedRootById(timeWorkedRoot, jobId);
+                if (timeWorkedElementForJob != null) {
+                    timeWorkedRoot.removeContent(timeWorkedElementForJob);
+                }
+                writeCurrentDatabase(); // only here do we need to save.
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Element getOrCreateJobsRoot() {
+        Element rootElement = currentDatabaseDocument.getRootElement();
+        Element jobsRoot = rootElement.getChild(JOBS_ELEMENT_NAME);
+        if (jobsRoot == null) {
+            jobsRoot = new Element(JOBS_ELEMENT_NAME);
+            rootElement.addContent(jobsRoot);
+        }
+        return jobsRoot;
     }
 
     private Element getOrCreateTimeWorkedRoot() {
