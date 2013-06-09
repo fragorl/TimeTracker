@@ -1,5 +1,6 @@
 package com.fragorl.timetracker.time;
 
+import com.fragorl.timetracker.util.RangeUtils;
 import com.google.common.collect.Range;
 
 /**
@@ -21,5 +22,10 @@ public class TimeSegment {
 
     public Range<Long> asRange() {
         return range;
+    }
+
+    @Override
+    public String toString() {
+        return "["+fromInclusive+", "+toExclusive+"), "+ RangeUtils.getLength(range)+"ms";
     }
 }

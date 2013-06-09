@@ -45,6 +45,12 @@ public class Main {
                 (int) ((bounds.height / 2) - (size.getHeight() / 2)));
         mainFrame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         mainFrame.setVisible(true);
+        Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
+            @Override
+            public void run() {
+                mainBox.doEmergencyQuitNonSwingThreadStuff();
+            }
+        }));
     }
 
     private static void setLookAndFeelOrFail() {

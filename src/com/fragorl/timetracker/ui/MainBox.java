@@ -102,18 +102,19 @@ public class MainBox extends Box {
     }
 
     private class MainBoxJobsChangedListener implements JobsChangedListener {
+
         @Override
         public void jobsChanged() {
             jobs = new ArrayList<>(JobsManager.getJobs()); // anything that's doing anything with jobs needs to watch out!
             jobsBox.jobsChanged(jobs);
         }
     }
-
     public ActiveJobChangedListener getActiveJobChangedListener() {
         return activeJobChangedListener;
     }
 
     private class MainBoxActiveJobChangedListener implements ActiveJobChangedListener {
+
         @Override
         public void activeJobChanged() {
             @Nullable String activeJobId = JobsManager.getActiveJobId();
@@ -128,15 +129,14 @@ public class MainBox extends Box {
             }
         }
     }
-
     private class JobsBox extends Box {
+
         private static final int PREFERRED_JOB_PANEL_HEIGHT = 76;
         private static final int PADDING = 5;
-
         private @Nullable String activeJobId;
+
         private Map<String, Stopwatch> jobIdsToStopwatches = new LinkedHashMap<>();
         private Map<String, JobPanel> jobIdsToPanels = new LinkedHashMap<>();
-
         public JobsBox() {
             super(BoxLayout.Y_AXIS);
             setPreferredSize(new Dimension(300, 450));
@@ -201,17 +201,25 @@ public class MainBox extends Box {
 
         private void startAndStopStopwatchesAndSaveProgress(JobPanel clickedOn) {
             String clickedOnId = clickedOn.job.getId();
+            stopRunningStopwatchAndDumpToPersistence(clickedOnId);
+            Stopwatch stopwatchForClickedOn = jobIdsToStopwatches.get(clickedOnId);
+            stopwatchForClickedOn.start();
+            clickedOn.setBackground(GraphicsUtils.LIGHT_BLUE);
+        }
+
+        /**
+         * stops any running stopwatch (PROVIDED its id is not idToIgnore, which can be null), gets its running time, and adds that to persistence.
+         * @param idToIgnore an id to ignore, can be null
+         */
+        private void stopRunningStopwatchAndDumpToPersistence(@Nullable String idToIgnore) {
             for (Map.Entry<String, Stopwatch> idToStopwatch : jobIdsToStopwatches.entrySet()) {
                 String id = idToStopwatch.getKey();
                 Stopwatch stopwatch = idToStopwatch.getValue();
-                if (stopwatch.isRunning() && !clickedOnId.equals(id)) {
+                if (stopwatch.isRunning() && (idToIgnore == null || !idToIgnore.equals(id))) {
                     TimeSegment timeWorkedOnPreviousJob = stopwatch.stop();
                     JobsManager.addTimeSegmentForJob(id, timeWorkedOnPreviousJob);
                 }
             }
-            Stopwatch stopwatchForClickedOn = jobIdsToStopwatches.get(clickedOnId);
-            stopwatchForClickedOn.start();
-            clickedOn.setBackground(GraphicsUtils.LIGHT_BLUE);
         }
 
         public void updateActiveJobElapsedTime() {
@@ -232,13 +240,13 @@ public class MainBox extends Box {
         }
 
         public class JobPanel extends JPanel {
-            private static final int PADDING = 5;
 
+            private static final int PADDING = 5;
             private Job job;
+
             private JLabel jobNameLabel;
             private JLabel elapsedTimeLabel;
             private JButton deleteButton;
-
             public JobPanel(Job job, Dimension preferredAndMaxSize) {
                 setLayout(new BorderLayout());
                 this.job = job;
@@ -285,9 +293,9 @@ public class MainBox extends Box {
                 elapsedTimeLabel.setText(labelValue);
                 repaint();
             }
+
         }
     }
-
     private class BottomMenuBox extends Box {
 
         private static final int PREFERRED_HEIGHT = 30;
@@ -302,9 +310,10 @@ public class MainBox extends Box {
             newJobButton.addActionListener(new NewJobAction());
             add(newJobButton);
         }
-    }
 
+    }
     private class NewJobAction implements ActionListener {
+
         @Override
         public void actionPerformed(ActionEvent e) {
             NewJobBox newJobBox = new NewJobBox();
@@ -318,5 +327,9 @@ public class MainBox extends Box {
             MainBox.this.validate();
             MainBox.this.repaint();
         }
+    }
+
+    public void doEmergencyQuitNonSwingThreadStuff() {
+        jobsBox.stopRunningStopwatchAndDumpToPersistence(null);
     }
 }
