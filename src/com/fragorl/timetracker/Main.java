@@ -43,6 +43,7 @@ public class Main {
         Dimension size = mainFrame.getPreferredSize();
         mainFrame.setLocation((int) ((bounds.width / 2) - (size.getWidth() / 2)),
                 (int) ((bounds.height / 2) - (size.getHeight() / 2)));
+        mainFrame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
         mainFrame.setVisible(true);
     }
 

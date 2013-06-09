@@ -6,6 +6,7 @@ import com.fragorl.timetracker.jobs.JobsChangedListener;
 import com.fragorl.timetracker.jobs.JobsManager;
 import com.fragorl.timetracker.time.Stopwatch;
 import com.fragorl.timetracker.time.TimeSegment;
+import com.fragorl.timetracker.util.ImageUtils;
 import com.fragorl.timetracker.util.TimeUtils;
 import com.google.common.collect.HashBiMap;
 import com.sun.istack.internal.Nullable;
@@ -14,6 +15,7 @@ import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;
 import java.awt.event.*;
+import java.io.IOException;
 import java.util.*;
 import java.util.List;
 import java.util.Timer;
@@ -25,6 +27,16 @@ import java.util.Timer;
  *          Created on 27/05/13 2:52 PM
  */
 public class MainBox extends Box {
+
+    private static final int DELETE_BUTTON_ICON_LENGTH = 12;
+    private static final ImageIcon DELETE_BUTTON_ICON;
+    static {
+        try {
+            DELETE_BUTTON_ICON = ImageUtils.getSquareIcon("cross.png", DELETE_BUTTON_ICON_LENGTH);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     private Timer timer;
     private MainBoxJobsChangedListener jobsChangedListener;
@@ -184,7 +196,7 @@ public class MainBox extends Box {
             clickedOn.setBackground(GraphicsUtils.LIGHT_BLUE);
         }
 
-        private void updateActiveJobElapsedTime() {
+        public void updateActiveJobElapsedTime() {
             if (activeJob != null) {
                 Job activeJob = jobsBox.activeJob;
                 long timeWorkedAlready = getTimeWorkedForJobId(activeJob.getId());
@@ -198,6 +210,10 @@ public class MainBox extends Box {
             }
         }
 
+        private void deleteJob(JobPanel panelWantingToDelete) {
+
+        }
+
         public class JobPanel extends JPanel {
             private static final int PADDING = 5;
 
@@ -205,6 +221,7 @@ public class MainBox extends Box {
             private Stopwatch stopwatch;
             private JLabel jobNameLabel;
             private JLabel elapsedTimeLabel;
+            private JButton deleteButton;
 
             public JobPanel(Job job, Dimension preferredAndMaxSize) {
                 setLayout(new BorderLayout());
@@ -218,10 +235,22 @@ public class MainBox extends Box {
                 jobNameLabel = new JLabel(job.getName());
                 internalBox.add(jobNameLabel);
                 internalBox.add(Box.createHorizontalGlue());
-                Box timeKeepingBox = new Box(BoxLayout.X_AXIS);
+                Box farRightBox = new Box(BoxLayout.Y_AXIS);
+                Box deleteButtonHorizontalBox = new Box(BoxLayout.X_AXIS);
+                deleteButtonHorizontalBox.add(Box.createHorizontalGlue());
+                deleteButton = new JButton(DELETE_BUTTON_ICON);
+                deleteButton.setOpaque(false);
+                deleteButton.setContentAreaFilled(false);
+                deleteButton.setBorderPainted(false);
+                deleteButton.setFocusPainted(false);
+                Dimension deleteButtonDimension = new Dimension(DELETE_BUTTON_ICON_LENGTH, DELETE_BUTTON_ICON_LENGTH);
+                deleteButton.setPreferredSize(deleteButtonDimension);
+                deleteButton.setMaximumSize(deleteButtonDimension);
+                deleteButtonHorizontalBox.add(deleteButton);
+                farRightBox.add(deleteButtonHorizontalBox);
                 elapsedTimeLabel = new JLabel(TimeUtils.convertTimeToOurFormat(getTimeWorkedForJobId(job.getId())));
-                timeKeepingBox.add(elapsedTimeLabel);
-                internalBox.add(timeKeepingBox);
+                farRightBox.add(elapsedTimeLabel);
+                internalBox.add(farRightBox);
                 addMouseListener(new MousePressedOnlyListener() {
                     @Override
                     public void mousePressed(MouseEvent e) {
@@ -248,6 +277,7 @@ public class MainBox extends Box {
             this.setOpaque(false);
             add(Box.createHorizontalGlue());
             JButton newJobButton = new JButton("+");
+            newJobButton.setOpaque(false);
             newJobButton.addActionListener(new NewJobAction());
             add(newJobButton);
         }

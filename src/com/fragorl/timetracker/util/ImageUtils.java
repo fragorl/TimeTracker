@@ -21,9 +21,7 @@ public class ImageUtils {
         File fileLocation = new File(RESOURCES_FOLDER_NAME + File.separator + iconNameAndExtension);
         ImageIcon imageIcon = new ImageIcon(fileLocation.getCanonicalPath()); // throws IOException if not found
         Image img = imageIcon.getImage();
-        BufferedImage bufferedImage = new BufferedImage(img.getWidth(null), img.getHeight(null), BufferedImage.TYPE_INT_ARGB);
-        Graphics g = bufferedImage.createGraphics();
-        g.drawImage(img, 0, 0, dimension, dimension, null);
-        return new ImageIcon(bufferedImage);
+        Image newIcon = img.getScaledInstance(dimension, dimension,  java.awt.Image.SCALE_SMOOTH);
+        return new ImageIcon(newIcon);
     }
 }
