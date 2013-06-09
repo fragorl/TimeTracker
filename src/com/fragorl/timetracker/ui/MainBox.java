@@ -39,7 +39,6 @@ public class MainBox extends Box {
     private MainBoxJobsChangedListener jobsChangedListener;
     private MainBoxActiveJobChangedListener activeJobChangedListener;
     private JobsBox jobsBox;
-    private List<Job> jobs;
 
     public MainBox() {
         super(BoxLayout.Y_AXIS);
@@ -105,7 +104,7 @@ public class MainBox extends Box {
 
         @Override
         public void jobsChanged() {
-            jobs = new ArrayList<>(JobsManager.getJobs()); // anything that's doing anything with jobs needs to watch out!
+            List<Job> jobs = new ArrayList<>(JobsManager.getJobs());
             jobsBox.jobsChanged(jobs);
         }
     }
