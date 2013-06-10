@@ -19,7 +19,6 @@ public class Main {
         setLookAndFeelOrFail();
 
         JFrame mainFrame = new JFrame("TimeTracker v0.0.1");
-        mainFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 
         GraphicsUtils.setupInstance(mainFrame);
 

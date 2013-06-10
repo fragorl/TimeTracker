@@ -25,11 +25,14 @@ import java.util.Timer;
  */
 public class MainBox extends Box {
 
-    private static final int DELETE_BUTTON_ICON_LENGTH = 12;
     private static final ImageIcon DELETE_BUTTON_ICON;
+    private static final ImageIcon PLAY_BUTTON_ICON;
+    private static final ImageIcon PAUSE_BUTTON_ICON;
     static {
         try {
-            DELETE_BUTTON_ICON = ImageUtils.getSquareIcon("cross.png", DELETE_BUTTON_ICON_LENGTH);
+            DELETE_BUTTON_ICON = ImageUtils.getSquareIcon("cross.png", 12);
+            PLAY_BUTTON_ICON = ImageUtils.getSquareIcon("play.png", 64);
+            PAUSE_BUTTON_ICON = ImageUtils.getSquareIcon("pause.png", 64);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -39,16 +42,17 @@ public class MainBox extends Box {
     private MainBoxJobsChangedListener jobsChangedListener;
     private MainBoxActiveJobChangedListener activeJobChangedListener;
     private JobsBox jobsBox;
+    private boolean isPaused;
 
     public MainBox() {
         super(BoxLayout.Y_AXIS);
-
         jobsChangedListener = new MainBoxJobsChangedListener();
         activeJobChangedListener = new MainBoxActiveJobChangedListener();
         jobsBox = new JobsBox();
+        isPaused = false;
         add(jobsBox);
         add(Box.createVerticalGlue());
-        BottomMenuBox bottomMenuBox = new BottomMenuBox(jobsBox.getPreferredSize().width);
+        BottomMenuBox bottomMenuBox = new BottomMenuBox();
         add(bottomMenuBox);
 
         // create the timer, but don't schedule any tasks yet. Otherwise it may end up running on a potentially uninitialized object.
@@ -70,7 +74,9 @@ public class MainBox extends Box {
     }
 
     private void eachSecond() {
-        SwingUtilities.invokeLater(jobsBox::updateActiveJobElapsedTime);
+        if (!isPaused) {
+            SwingUtilities.invokeLater(jobsBox::updateActiveJobElapsedTime);
+        }
     }
 
     private long getTimeWorkedForJobId(String jobId) {
@@ -128,9 +134,11 @@ public class MainBox extends Box {
             }
         }
     }
-    private class JobsBox extends Box {
 
+    private class JobsBox extends Box {
         private static final int PREFERRED_JOB_PANEL_HEIGHT = 76;
+        private static final int DEFAULT_DIMENSION_X = 300;
+        private static final int DEFAULT_DIMENSION_Y = 450;
         private static final int PADDING = 5;
         private @Nullable String activeJobId;
 
@@ -138,7 +146,7 @@ public class MainBox extends Box {
         private Map<String, JobPanel> jobIdsToPanels = new LinkedHashMap<>();
         public JobsBox() {
             super(BoxLayout.Y_AXIS);
-            setPreferredSize(new Dimension(300, 450));
+            setPreferredSize(new Dimension(DEFAULT_DIMENSION_X, DEFAULT_DIMENSION_Y));
         }
 
         public synchronized void jobsChanged(List<Job> newJobs) {
@@ -190,11 +198,23 @@ public class MainBox extends Box {
             }
         }
 
+        private void pausedStateChanged() {
+            if (activeJobId != null) {
+                JobPanel activeJobPanel = jobIdsToPanels.get(activeJobId);
+                activeJobPanel.setBackground(pausedOrPlayingColor());
+                repaint();
+            }
+        }
+
+        private Color pausedOrPlayingColor() {
+            return isPaused ? GraphicsUtils.LIGHT_MAUVE : GraphicsUtils.LIGHT_BLUE;
+        }
+
         private void setColorsForSelectedJob(JobPanel clickedOn) {
             for (JobPanel jobPanel : jobIdsToPanels.values()) {
                 jobPanel.setBackground(GraphicsUtils.LIGHT_GREY);
             }
-            clickedOn.setBackground(GraphicsUtils.LIGHT_BLUE);
+            clickedOn.setBackground(pausedOrPlayingColor());
             repaint();
         }
 
@@ -203,7 +223,14 @@ public class MainBox extends Box {
             stopRunningStopwatchAndDumpToPersistence(clickedOnId);
             Stopwatch stopwatchForClickedOn = jobIdsToStopwatches.get(clickedOnId);
             stopwatchForClickedOn.start();
-            clickedOn.setBackground(GraphicsUtils.LIGHT_BLUE);
+            clickedOn.setBackground(pausedOrPlayingColor());
+        }
+
+        private void startActiveJobAgainIfAny() {
+            if (activeJobId != null) {
+                Stopwatch stopwatchForActiveJob = jobIdsToStopwatches.get(activeJobId);
+                stopwatchForActiveJob.start();
+            }
         }
 
         /**
@@ -260,14 +287,8 @@ public class MainBox extends Box {
                 Box farRightBox = new Box(BoxLayout.Y_AXIS);
                 Box deleteButtonHorizontalBox = new Box(BoxLayout.X_AXIS);
                 deleteButtonHorizontalBox.add(Box.createHorizontalGlue());
-                deleteButton = new JButton(DELETE_BUTTON_ICON);
-                deleteButton.setOpaque(false);
-                deleteButton.setContentAreaFilled(false);
-                deleteButton.setBorderPainted(false);
-                deleteButton.setFocusPainted(false);
-                Dimension deleteButtonDimension = new Dimension(DELETE_BUTTON_ICON_LENGTH, DELETE_BUTTON_ICON_LENGTH);
-                deleteButton.setPreferredSize(deleteButtonDimension);
-                deleteButton.setMaximumSize(deleteButtonDimension);
+                deleteButton = new JButton();
+                GraphicsUtils.setupButtonWithIcon(deleteButton, DELETE_BUTTON_ICON);
                 deleteButtonHorizontalBox.add(deleteButton);
                 deleteButton.addMouseListener(new MousePressedOnlyListener() {
                     @Override
@@ -292,27 +313,43 @@ public class MainBox extends Box {
                 elapsedTimeLabel.setText(labelValue);
                 repaint();
             }
-
         }
     }
-    private class BottomMenuBox extends Box {
 
-        private static final int PREFERRED_HEIGHT = 30;
+    private class BottomMenuBox extends JPanel {
 
-        public BottomMenuBox(int width) {
-            super(BoxLayout.X_AXIS);
-            this.setPreferredSize(new Dimension(width, PREFERRED_HEIGHT));
+        private PausePlayAction pausePlayAction = new PausePlayAction();
+        private JButton pauseAndPlayButton;
+
+        public BottomMenuBox() {
+            setLayout(new BorderLayout());
             this.setOpaque(false);
-            add(Box.createHorizontalGlue());
+            pauseAndPlayButton = new JButton();
+            pauseAndPlayButton.addActionListener(pausePlayAction);
+            GraphicsUtils.setupButtonWithIcon(pauseAndPlayButton, PAUSE_BUTTON_ICON);
+            add(pauseAndPlayButton, BorderLayout.CENTER);
             JButton newJobButton = new JButton("+");
             newJobButton.setOpaque(false);
             newJobButton.addActionListener(new NewJobAction());
-            add(newJobButton);
+            add(newJobButton, BorderLayout.EAST);
         }
 
+        private class PausePlayAction implements ActionListener {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                pauseAndPlayButton.setIcon(isPaused ? PAUSE_BUTTON_ICON : PLAY_BUTTON_ICON);
+                if (isPaused) {
+                    jobsBox.startActiveJobAgainIfAny();
+                } else {
+                    jobsBox.stopRunningStopwatchAndDumpToPersistence(null);
+                }
+                isPaused = !isPaused;
+                jobsBox.pausedStateChanged();
+            }
+        }
     }
-    private class NewJobAction implements ActionListener {
 
+    private class NewJobAction implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
             NewJobBox newJobBox = new NewJobBox();
