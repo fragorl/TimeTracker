@@ -126,7 +126,7 @@ public class MainBox extends Box {
             if (activeJobId != null) {
                 for (JobsBox.JobPanel panel : jobsBox.jobIdsToPanels.values()) {
                     if (activeJobId.equals(panel.job.getId())) {
-                        jobsBox.setActiveJobIfNotAlready(panel);
+                        jobsBox.jobPanelClicked(panel);
                     }
                 }
             } else {
@@ -188,12 +188,14 @@ public class MainBox extends Box {
             activeJobId = null;
         }
 
-        private void setActiveJobIfNotAlready(JobPanel jobPanel) {
+        private void jobPanelClicked(JobPanel jobPanel) {
             Job job = jobPanel.job;
             if (activeJobId == null || !activeJobId.equals(job.getId())) {
                 JobsManager.setActiveJob(job.getId());
                 setColorsForSelectedJob(jobPanel);
-                startAndStopStopwatchesAndSaveProgress(jobPanel);
+                if (!isPaused) {
+                    startAndStopStopwatchesAndSaveProgress(jobPanel);
+                }
                 activeJobId = job.getId();
             }
         }
@@ -303,7 +305,7 @@ public class MainBox extends Box {
                 addMouseListener(new MousePressedOnlyListener() {
                     @Override
                     public void mousePressed(MouseEvent e) {
-                        setActiveJobIfNotAlready(JobPanel.this);
+                        jobPanelClicked(JobPanel.this);
                     }
                 });
             }
