@@ -2,7 +2,7 @@ package com.fragorl.timetracker;
 
 import com.fragorl.timetracker.jobs.JobsManager;
 import com.fragorl.timetracker.ui.GraphicsUtils;
-import com.fragorl.timetracker.ui.MainBox;
+import com.fragorl.timetracker.ui.MainPanel;
 
 import javax.swing.*;
 import java.awt.*;
@@ -26,13 +26,13 @@ public class Main {
         GraphicsConfiguration gc = mainFrame.getGraphicsConfiguration();
         Rectangle bounds = gc.getBounds();
 
-        MainBox mainBox = new MainBox();
-        mainBox.beginTiming();
-        mainFrame.add(mainBox);
+        MainPanel mainPanel = new MainPanel();
+        mainPanel.beginTiming();
+        mainFrame.add(mainPanel);
 
         // initialize and do JobsManager stuff
-        JobsManager.getJobsChangedListeners().add(mainBox.getJobsChangedListener());
-        JobsManager.getActiveJobChangedListeners().add(mainBox.getActiveJobChangedListener());
+        JobsManager.getJobsChangedListeners().add(mainPanel.getJobsChangedListener());
+        JobsManager.getActiveJobChangedListeners().add(mainPanel.getActiveJobChangedListener());
         JobsManager.syncJobs();
         JobsManager.syncActiveJob();
 
@@ -47,7 +47,7 @@ public class Main {
         Runtime.getRuntime().addShutdownHook(new Thread(new Runnable() {
             @Override
             public void run() {
-                mainBox.doEmergencyQuitNonSwingThreadStuff();
+                mainPanel.doEmergencyQuitNonSwingThreadStuff();
             }
         }));
     }

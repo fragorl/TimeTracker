@@ -7,6 +7,9 @@ import com.fragorl.timetracker.util.ImageUtils;
 import com.fragorl.timetracker.util.TimeUtils;
 import com.google.common.collect.ImmutableMap;
 import com.sun.istack.internal.Nullable;
+import net.miginfocom.layout.AC;
+import net.miginfocom.layout.LC;
+import net.miginfocom.swing.MigLayout;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -23,7 +26,7 @@ import java.util.Timer;
  *          <p/>
  *          Created on 27/05/13 2:52 PM
  */
-public class MainBox extends Box {
+public class MainPanel extends JPanel {
 
     private static final ImageIcon DELETE_BUTTON_ICON;
     private static final ImageIcon PLAY_BUTTON_ICON;
@@ -41,19 +44,18 @@ public class MainBox extends Box {
     private Timer timer;
     private MainBoxJobsChangedListener jobsChangedListener;
     private MainBoxActiveJobChangedListener activeJobChangedListener;
-    private JobsBox jobsBox;
+    private JobsPanel jobsPanel;
     private boolean isPaused;
 
-    public MainBox() {
-        super(BoxLayout.Y_AXIS);
+    public MainPanel() {
+        super(new BorderLayout());
         jobsChangedListener = new MainBoxJobsChangedListener();
         activeJobChangedListener = new MainBoxActiveJobChangedListener();
-        jobsBox = new JobsBox();
+        jobsPanel = new JobsPanel();
         isPaused = false;
-        add(jobsBox);
-        add(Box.createVerticalGlue());
+        add(jobsPanel, BorderLayout.NORTH);
         BottomMenuBox bottomMenuBox = new BottomMenuBox();
-        add(bottomMenuBox);
+        add(bottomMenuBox, BorderLayout.SOUTH);
 
         // create the timer, but don't schedule any tasks yet. Otherwise it may end up running on a potentially uninitialized object.
         timer = new Timer(true);
@@ -75,7 +77,7 @@ public class MainBox extends Box {
 
     private void eachSecond() {
         if (!isPaused) {
-            SwingUtilities.invokeLater(jobsBox::updateActiveJobElapsedTime);
+            SwingUtilities.invokeLater(jobsPanel::updateActiveJobElapsedTime);
         }
     }
 
@@ -111,7 +113,7 @@ public class MainBox extends Box {
         @Override
         public void jobsChanged() {
             List<Job> jobs = new ArrayList<>(JobsManager.getJobs());
-            jobsBox.jobsChanged(jobs);
+            jobsPanel.jobsChanged(jobs);
         }
     }
     public ActiveJobChangedListener getActiveJobChangedListener() {
@@ -124,18 +126,18 @@ public class MainBox extends Box {
         public void activeJobChanged() {
             @Nullable String activeJobId = JobsManager.getActiveJobId();
             if (activeJobId != null) {
-                for (JobsBox.JobPanel panel : jobsBox.jobIdsToPanels.values()) {
+                for (JobsPanel.JobPanel panel : jobsPanel.jobIdsToPanels.values()) {
                     if (activeJobId.equals(panel.job.getId())) {
-                        jobsBox.jobPanelClicked(panel);
+                        jobsPanel.jobPanelClicked(panel);
                     }
                 }
             } else {
-                jobsBox.setNullActiveJob();
+                jobsPanel.setNullActiveJob();
             }
         }
     }
 
-    private class JobsBox extends Box {
+    private class JobsPanel extends JPanel {
         private static final int PREFERRED_JOB_PANEL_HEIGHT = 76;
         private static final int DEFAULT_DIMENSION_X = 300;
         private static final int DEFAULT_DIMENSION_Y = 450;
@@ -144,9 +146,11 @@ public class MainBox extends Box {
 
         private Map<String, Stopwatch> jobIdsToStopwatches = new LinkedHashMap<>();
         private Map<String, JobPanel> jobIdsToPanels = new LinkedHashMap<>();
-        public JobsBox() {
-            super(BoxLayout.Y_AXIS);
+        public JobsPanel() {
+            super(new MigLayout(
+                    new LC().wrapAfter(1), new AC().fill().grow(), null));
             setPreferredSize(new Dimension(DEFAULT_DIMENSION_X, DEFAULT_DIMENSION_Y));
+            setOpaque(false);
         }
 
         public synchronized void jobsChanged(List<Job> newJobs) {
@@ -155,8 +159,8 @@ public class MainBox extends Box {
             ImmutableMap.Builder<String, Stopwatch> jobsToStopwatchesBuilder = ImmutableMap.builder();
             for (Job newJob : newJobs) {
                 String id = newJob.getId();
-                add(Box.createVerticalStrut(PADDING));
-                JobPanel panel = createComponentsForJobAddAndReturnItsPanel(newJob);
+                JobPanel panel = createComponentsForJobAndReturnItsPanel(newJob);
+                add(panel);
                 jobIdsToPanels.put(id, panel);
                 @Nullable Stopwatch existingStopwatch = jobIdsToStopwatches.get(id);
                 if (existingStopwatch != null) {
@@ -173,14 +177,13 @@ public class MainBox extends Box {
             repaint();
         }
 
-        private JobPanel createComponentsForJobAddAndReturnItsPanel(Job job) {
+        private JobPanel createComponentsForJobAndReturnItsPanel(Job job) {
             Box panelSurroundingBox = Box.createHorizontalBox();
             panelSurroundingBox.add(Box.createHorizontalGlue());
             JobPanel jobPanel = new JobPanel(job, new Dimension((int)Math.round(getPreferredSize().getWidth()) - PADDING - PADDING, PREFERRED_JOB_PANEL_HEIGHT));
             jobPanel.setBackground(GraphicsUtils.LIGHT_GREY);
             panelSurroundingBox.add(jobPanel);
             panelSurroundingBox.add(Box.createHorizontalGlue());
-            add(panelSurroundingBox);
             return jobPanel;
         }
 
@@ -253,7 +256,7 @@ public class MainBox extends Box {
         public void updateActiveJobElapsedTime() {
             if (activeJobId != null) {
                 long timeWorkedAlready = getTimeWorkedForJobId(activeJobId);
-                JobsBox.JobPanel panelForActiveJob = jobIdsToPanels.get(activeJobId);
+                JobsPanel.JobPanel panelForActiveJob = jobIdsToPanels.get(activeJobId);
                 if (panelForActiveJob == null) {
                     throw new IllegalStateException("active job (which was not null) was somehow mapped to a null panel!");
                 }
@@ -273,20 +276,36 @@ public class MainBox extends Box {
             private Job job;
 
             private JLabel jobNameLabel;
+            private JLabel jobDescriptionLabel;
             private JLabel elapsedTimeLabel;
             private JButton deleteButton;
             public JobPanel(Job job, Dimension preferredAndMaxSize) {
-                setLayout(new BorderLayout());
-                this.job = job;
-                this.setPreferredSize(preferredAndMaxSize);
-                this.setMaximumSize(preferredAndMaxSize);
+                setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
                 setBorder(new EmptyBorder(PADDING, PADDING, PADDING, PADDING));
+                this.job = job;
+//                this.setPreferredSize(preferredAndMaxSize);
+                int height = (int)preferredAndMaxSize.getHeight();
+                int nameAndTimeBoxWidths = (int)(preferredAndMaxSize.getWidth() * 0.25);
+                int descriptionBoxWidth  = (int)preferredAndMaxSize.getWidth() - nameAndTimeBoxWidths * 2;
                 Box internalBox = new Box(BoxLayout.X_AXIS);
                 add(internalBox, BorderLayout.CENTER);
+
+                Box leftNameBox          = Box.createVerticalBox();
+                Box middleDescriptionBox = Box.createVerticalBox();
+                Box rightTimeAndStuffBox = Box.createVerticalBox();
+
+                leftNameBox.setPreferredSize(         new Dimension(nameAndTimeBoxWidths, height));
+                middleDescriptionBox.setPreferredSize(new Dimension(descriptionBoxWidth, height));
+                rightTimeAndStuffBox.setPreferredSize(new Dimension(nameAndTimeBoxWidths, height));
+
                 jobNameLabel = new JLabel(job.getName());
-                internalBox.add(jobNameLabel);
-                internalBox.add(Box.createHorizontalGlue());
-                Box farRightBox = new Box(BoxLayout.Y_AXIS);
+                leftNameBox.add(jobNameLabel);
+                internalBox.add(leftNameBox);
+
+                jobDescriptionLabel = new JLabel(job.getDescription());
+                middleDescriptionBox.add(jobDescriptionLabel);
+                internalBox.add(middleDescriptionBox);
+
                 Box deleteButtonHorizontalBox = new Box(BoxLayout.X_AXIS);
                 deleteButtonHorizontalBox.add(Box.createHorizontalGlue());
                 deleteButton = new JButton();
@@ -298,10 +317,12 @@ public class MainBox extends Box {
                         deleteJob(JobPanel.this);
                     }
                 });
-                farRightBox.add(deleteButtonHorizontalBox);
+                rightTimeAndStuffBox.add(deleteButtonHorizontalBox);
                 elapsedTimeLabel = new JLabel(TimeUtils.convertTimeToOurFormat(getTimeWorkedForJobId(job.getId())));
-                farRightBox.add(elapsedTimeLabel);
-                internalBox.add(farRightBox);
+                rightTimeAndStuffBox.add(elapsedTimeLabel);
+                rightTimeAndStuffBox.add(Box.createVerticalGlue());
+                internalBox.add(rightTimeAndStuffBox);
+
                 addMouseListener(new MousePressedOnlyListener() {
                     @Override
                     public void mousePressed(MouseEvent e) {
@@ -341,12 +362,12 @@ public class MainBox extends Box {
             public void actionPerformed(ActionEvent e) {
                 pauseAndPlayButton.setIcon(isPaused ? PAUSE_BUTTON_ICON : PLAY_BUTTON_ICON);
                 if (isPaused) {
-                    jobsBox.startActiveJobAgainIfAny();
+                    jobsPanel.startActiveJobAgainIfAny();
                 } else {
-                    jobsBox.stopRunningStopwatchAndDumpToPersistence(null);
+                    jobsPanel.stopRunningStopwatchAndDumpToPersistence(null);
                 }
                 isPaused = !isPaused;
-                jobsBox.pausedStateChanged();
+                jobsPanel.pausedStateChanged();
             }
         }
     }
@@ -362,12 +383,12 @@ public class MainBox extends Box {
             String newJobName = newJobBox.getJobName();
             String newJobDescription = newJobBox.getDescription();
             JobsManager.createJob(newJobName, newJobDescription);
-            MainBox.this.validate();
-            MainBox.this.repaint();
+            MainPanel.this.validate();
+            MainPanel.this.repaint();
         }
     }
 
     public void doEmergencyQuitNonSwingThreadStuff() {
-        jobsBox.stopRunningStopwatchAndDumpToPersistence(null);
+        jobsPanel.stopRunningStopwatchAndDumpToPersistence(null);
     }
 }

@@ -10,6 +10,6 @@ import org.jdom2.Element;
  */
 public interface XmlSerializable {
     public Element toXml();
-    public void fromXml(Element element);
+    public void fromXml(Element element) throws XmlSerializationException;
     public static final String ROOT_ELEMENT_NAME = "root";
 }

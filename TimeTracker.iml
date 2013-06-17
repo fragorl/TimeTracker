@@ -28,6 +28,7 @@
       </library>
     </orderEntry>
     <orderEntry type="library" name="jdom-2.0.5" level="project" />
+    <orderEntry type="library" name="miglayout-4.0" level="project" />
   </component>
 </module>
 
