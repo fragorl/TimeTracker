@@ -279,16 +279,31 @@ public class MainPanel extends JPanel {
             private JLabel jobDescriptionLabel;
             private JLabel elapsedTimeLabel;
             private JButton deleteButton;
-            public JobPanel(Job job, Dimension preferredAndMaxSize) {
-                setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
-                setBorder(new EmptyBorder(PADDING, PADDING, PADDING, PADDING));
+            private JButton expandContractButton;
+
+            private final boolean hasSubtasks;
+            private boolean isExpanded;
+            public JobPanel(Job job, Dimension preferredSize) {
+                super(new CardLayout());
+                this.setPreferredSize(preferredSize);
                 this.job = job;
-//                this.setPreferredSize(preferredAndMaxSize);
-                int height = (int)preferredAndMaxSize.getHeight();
-                int nameAndTimeBoxWidths = (int)(preferredAndMaxSize.getWidth() * 0.25);
-                int descriptionBoxWidth  = (int)preferredAndMaxSize.getWidth() - nameAndTimeBoxWidths * 2;
+                this.isExpanded = false;
+                this.hasSubtasks = !job.getSubtaskIds().isEmpty();
+                JPanel mainPanel = setupMainPanel(preferredSize);
+                add(mainPanel);
+                JPanel mostlyTransparentExpandButtonPanel = setupMostlyTransparentExpandButtonPanel();
+                add(mostlyTransparentExpandButtonPanel);
+            }
+
+            private JPanel setupMainPanel(Dimension preferredSize) {
+                JPanel mainPanel = new JPanel(new MigLayout());
+                mainPanel.setBorder(new EmptyBorder(PADDING, PADDING, PADDING, PADDING));
+
+                int height = (int)preferredSize.getHeight();
+                int nameAndTimeBoxWidths = (int)(preferredSize.getWidth() * 0.25);
+                int descriptionBoxWidth  = (int)preferredSize.getWidth() - nameAndTimeBoxWidths * 2;
                 Box internalBox = new Box(BoxLayout.X_AXIS);
-                add(internalBox, BorderLayout.CENTER);
+                mainPanel.add(internalBox, BorderLayout.CENTER);
 
                 Box leftNameBox          = Box.createVerticalBox();
                 Box middleDescriptionBox = Box.createVerticalBox();
@@ -329,6 +344,21 @@ public class MainPanel extends JPanel {
                         jobPanelClicked(JobPanel.this);
                     }
                 });
+                mainPanel.setOpaque(false); // so that the colour of the "overall" panel (JobPanel) will show through
+                return mainPanel;
+            }
+
+            private JPanel setupMostlyTransparentExpandButtonPanel() {
+                JPanel mostlyTransparentExpandButtonPanel = new JPanel();
+                mostlyTransparentExpandButtonPanel.setLayout(new BoxLayout(mostlyTransparentExpandButtonPanel, BoxLayout.X_AXIS));
+                mostlyTransparentExpandButtonPanel.add(Box.createHorizontalGlue());
+                Box rightHandSideBox = Box.createVerticalBox();
+                rightHandSideBox.add(Box.createVerticalGlue());
+                expandContractButton = new JButton("hahaha");
+                rightHandSideBox.add(expandContractButton);
+                mostlyTransparentExpandButtonPanel.add(rightHandSideBox);
+                mostlyTransparentExpandButtonPanel.setOpaque(false);
+                return mostlyTransparentExpandButtonPanel;
             }
 
             public void setNewElapsedTime(long elapsedTime) {

@@ -25,7 +25,7 @@ public class Job implements XmlSerializable {
     private String name;
     private String id;
     private @Nullable String description;
-    private List<String> subtaskIds;
+    private List<String> subtaskIds = new ArrayList<>();
 
     private Job() {
         // for xml deserialization
@@ -35,7 +35,6 @@ public class Job implements XmlSerializable {
         this.name = name;
         this.id = id;
         this.description = description;
-        this.subtaskIds = new ArrayList<>();
     }
 
     public String getName() {
