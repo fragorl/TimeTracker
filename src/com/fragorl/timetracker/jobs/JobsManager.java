@@ -56,7 +56,9 @@ public class JobsManager {
     }
 
     private void setActiveJobInternal(String jobId) {
-        PersistenceManager.saveActiveJob(jobId);
+        if (PersistenceManager.saveActiveJob(jobId)) {
+            syncActiveJobInternal();
+        }
     }
 
     public static @Nullable List<TimeSegment> getTimeWorkedSegments(String jobId) {
