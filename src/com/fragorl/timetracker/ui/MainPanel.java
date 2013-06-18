@@ -125,15 +125,7 @@ public class MainPanel extends JPanel {
         @Override
         public void activeJobChanged() {
             @Nullable String activeJobId = JobsManager.getActiveJobId();
-            if (activeJobId != null) {
-                for (JobsPanel.JobPanel panel : jobsPanel.jobIdsToPanels.values()) {
-                    if (activeJobId.equals(panel.job.getId())) {
-                        jobsPanel.jobPanelClicked(panel);
-                    }
-                }
-            } else {
-                jobsPanel.setNullActiveJob();
-            }
+            jobsPanel.newActiveJobSelected(activeJobId);
         }
     }
 
@@ -187,20 +179,35 @@ public class MainPanel extends JPanel {
             return jobPanel;
         }
 
-        private void setNullActiveJob() {
-            activeJobId = null;
+        private void jobPanelClickedOn(JobPanel jobPanelClickedOn) {
+            Job job = jobPanelClickedOn.job;
+            if (activeJobId == null || !activeJobId.equals(job.getId())) {
+                // this event will filter back down through the ActiveJobChangedListener that this class registers with the JobsManager.
+                JobsManager.setActiveJob(job.getId());
+            }
         }
 
-        private void jobPanelClicked(JobPanel jobPanel) {
-            Job job = jobPanel.job;
-            if (activeJobId == null || !activeJobId.equals(job.getId())) {
-                JobsManager.setActiveJob(job.getId());
-                setColorsForSelectedJob(jobPanel);
-                if (!isPaused) {
-                    startAndStopStopwatchesAndSaveProgress(jobPanel);
+        private void newActiveJobSelected(@Nullable String newActiveJobId) {
+            if (newActiveJobId != null) {
+                JobPanel panelForNewActiveJob = null;
+                for (JobsPanel.JobPanel panel : jobsPanel.jobIdsToPanels.values()) {
+                    if (newActiveJobId.equals(panel.job.getId())) {
+                        panelForNewActiveJob = panel;
+                    }
                 }
-                activeJobId = job.getId();
+                if (panelForNewActiveJob == null) {
+                    throw new IllegalStateException("Got a null panel for newActiveJobId "+newActiveJobId+", which was non null. This shouldn't happen.");
+                }
+
+                if (activeJobId == null || !activeJobId.equals(newActiveJobId)) {
+                    setColorsForSelectedJob(panelForNewActiveJob);
+                    if (!isPaused) {
+                        startAndStopStopwatchesAndSaveProgress(panelForNewActiveJob);
+                    }
+                }
             }
+
+            activeJobId = newActiveJobId;
         }
 
         private void pausedStateChanged() {
@@ -341,7 +348,7 @@ public class MainPanel extends JPanel {
                 addMouseListener(new MousePressedOnlyListener() {
                     @Override
                     public void mousePressed(MouseEvent e) {
-                        jobPanelClicked(JobPanel.this);
+                        jobPanelClickedOn(JobPanel.this);
                     }
                 });
                 mainPanel.setOpaque(false); // so that the colour of the "overall" panel (JobPanel) will show through
