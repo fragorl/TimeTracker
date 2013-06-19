@@ -286,19 +286,14 @@ public class MainPanel extends JPanel {
             private JLabel jobDescriptionLabel;
             private JLabel elapsedTimeLabel;
             private JButton deleteButton;
-            private JButton expandContractButton;
 
-            private final boolean hasSubtasks;
-            private boolean isExpanded;
             public JobPanel(Job job, Dimension preferredSize) {
-                super(new CardLayout());
+                super(new OverlappingPanelsLayoutManager());
                 this.setPreferredSize(preferredSize);
                 this.job = job;
-                this.isExpanded = false;
-                this.hasSubtasks = !job.getSubtaskIds().isEmpty();
                 JPanel mainPanel = setupMainPanel(preferredSize);
                 add(mainPanel);
-                JPanel mostlyTransparentExpandButtonPanel = setupMostlyTransparentExpandButtonPanel();
+                JPanel mostlyTransparentExpandButtonPanel = new SubtasksBottomMenuActionsPanel();
                 add(mostlyTransparentExpandButtonPanel);
             }
 
@@ -355,23 +350,95 @@ public class MainPanel extends JPanel {
                 return mainPanel;
             }
 
-            private JPanel setupMostlyTransparentExpandButtonPanel() {
-                JPanel mostlyTransparentExpandButtonPanel = new JPanel();
-                mostlyTransparentExpandButtonPanel.setLayout(new BoxLayout(mostlyTransparentExpandButtonPanel, BoxLayout.X_AXIS));
-                mostlyTransparentExpandButtonPanel.add(Box.createHorizontalGlue());
-                Box rightHandSideBox = Box.createVerticalBox();
-                rightHandSideBox.add(Box.createVerticalGlue());
-                expandContractButton = new JButton("hahaha");
-                rightHandSideBox.add(expandContractButton);
-                mostlyTransparentExpandButtonPanel.add(rightHandSideBox);
-                mostlyTransparentExpandButtonPanel.setOpaque(false);
-                return mostlyTransparentExpandButtonPanel;
-            }
-
             public void setNewElapsedTime(long elapsedTime) {
                 String labelValue = TimeUtils.convertTimeToOurFormat(elapsedTime);
                 elapsedTimeLabel.setText(labelValue);
                 repaint();
+            }
+
+            private class SubtasksBottomMenuActionsPanel extends JPanel {
+
+                private JButton addSubtasksButton;
+                private JButton expandButton;
+                private JButton collapseButton;
+                private List<JButton> buttons;
+                private Box boxForButtons;
+
+                private SubtasksBottomMenuActionsPanel() {
+                    buttons = Arrays.asList(
+                        addSubtasksButton = new JButton("Add subtasks..."),
+                        expandButton = new JButton("View subtasks"),
+                        collapseButton = new JButton("Collapse")
+                    );
+                    addSubtasksButton.setOpaque(false);
+                    expandButton.setOpaque(false);
+                    collapseButton.setOpaque(false);
+                    setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
+                    add(Box.createHorizontalGlue());
+                    boxForButtons = Box.createVerticalBox();
+                    boxForButtons.add(Box.createVerticalGlue());
+                    add(boxForButtons);
+                    setOpaque(false);
+                    initButtons();
+                }
+
+                private void initButtons() {
+                    if (!job.getSubtaskIds().isEmpty()) {
+                        putInCollapsedState();
+                    } else {
+                        putInSubtasksCanBeAddedState();
+                    }
+                }
+
+                private void putInCollapsedState() {
+                    removeAllButtonsFromBox();
+                    boxForButtons.add(expandButton);
+                    panelChanged();
+                }
+
+                private void putInExpandedState() {
+                    removeAllButtonsFromBox();
+                    boxForButtons.add(collapseButton);
+                    panelChanged();
+                }
+
+                private void putInSubtasksCanBeAddedState() {
+                    removeAllButtonsFromBox();
+                    boxForButtons.add(addSubtasksButton);
+                    panelChanged();
+                }
+
+                private void removeAllButtonsFromBox() {
+                    for (JButton button : buttons) {
+                        boxForButtons.remove(button);
+                    }
+                }
+
+                private void panelChanged() {
+                    invalidate();
+                    repaint();
+                }
+
+                private final ActionListener addSubtasksAction = new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+
+                    }
+                };
+
+                private final ActionListener expandAction = new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        putInExpandedState();
+                    }
+                };
+
+                private final ActionListener collapseAction = new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        putInCollapsedState();
+                    }
+                };
             }
         }
     }
@@ -416,12 +483,13 @@ public class MainPanel extends JPanel {
             final JComponent[] inputs = new JComponent[]{
                     newJobBox
             };
-            JOptionPane.showConfirmDialog(GraphicsUtils.getMainFrame(), inputs, "New Job", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
-            String newJobName = newJobBox.getJobName();
-            String newJobDescription = newJobBox.getDescription();
-            JobsManager.createJob(newJobName, newJobDescription);
-            MainPanel.this.validate();
-            MainPanel.this.repaint();
+            if (JOptionPane.CANCEL_OPTION != JOptionPane.showConfirmDialog(GraphicsUtils.getMainFrame(), inputs, "New Job", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE)) {
+                String newJobName = newJobBox.getJobName();
+                String newJobDescription = newJobBox.getDescription();
+                JobsManager.createJob(newJobName, newJobDescription);
+                MainPanel.this.validate();
+                MainPanel.this.repaint();
+            }
         }
     }
 
