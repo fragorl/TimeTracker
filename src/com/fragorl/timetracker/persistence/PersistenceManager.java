@@ -1,6 +1,7 @@
 package com.fragorl.timetracker.persistence;
 
 import com.fragorl.timetracker.jobs.Job;
+import com.fragorl.timetracker.jobs.JobsFilter;
 import com.fragorl.timetracker.serialization.XmlSerializable;
 import com.fragorl.timetracker.serialization.XmlSerializationException;
 import com.fragorl.timetracker.serialization.XmlSerializer;
@@ -20,6 +21,9 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
+import java.util.stream.Collector;
+import java.util.stream.Collectors;
 
 /**
  * @author Alex
@@ -234,6 +238,12 @@ public class PersistenceManager {
         timeSegmentsRoot.addContent(TimeSerialization.serialize(segment, DEFAULT_STORAGE_TYPE));
         writeCurrentDatabase();
     }
+
+//    public static void alterJob(String jobId, ) {
+//        synchronized (instance) {
+//            instance.addSubtaskInternal(jobId, name, description);
+//        }
+//    }
 
     private static @Nullable Element getJobTimeWorkedRootById(Element allJobsTimeWorkedRoot, String jobId) {
         for (Element jobTimeWorkedRoot : allJobsTimeWorkedRoot.getChildren()) {

@@ -21,11 +21,10 @@ import java.util.List;
  *          Created on 23/05/13 10:09 AM
  */
 public class Job implements XmlSerializable {
-    public static final String SUBTASKS_ELEMENT_NAME = "subtasks";
     private String name;
     private String id;
     private @Nullable String description;
-    private List<String> subtaskIds = new ArrayList<>();
+    private @Nullable String parentTaskId;
 
     private Job() {
         // for xml deserialization
@@ -49,37 +48,35 @@ public class Job implements XmlSerializable {
         return description;
     }
 
-    public List<String> getSubtaskIds() {
-        return subtaskIds;
+    public @Nullable String getParentTaskId() {
+        return parentTaskId;
     }
 
     @Override
     public Element toXml() {
         Element element = new Element(XmlSerializable.ROOT_ELEMENT_NAME);
-        element.addContent(new Element("name").setText(name));
-        element.addContent(new Element("id").setText(id));
+        element.addContent(new Element("name").setText(EntifyStrings.entifyXML(name)));
+        element.addContent(new Element("id").setText(EntifyStrings.entifyXML(id)));
         if (description != null) {
             String descriptionToSerialize = EntifyStrings.entifyXML(description);
             element.addContent(new Element("description").setText(descriptionToSerialize));
         }
-        if (!subtaskIds.isEmpty()) {
-            Element serializedSubtasks = XmlSerializationUtils.stringListToElement(subtaskIds);
-            serializedSubtasks.setName(SUBTASKS_ELEMENT_NAME);
-            element.addContent(serializedSubtasks);
+        if (parentTaskId != null) {
+            element.addContent(new Element("parentTaskId").setText(parentTaskId));
         }
         return element;
     }
 
     @Override
     public void fromXml(Element element) throws XmlSerializationException {
-        this.name = element.getChild("name").getText();
-        this.id = element.getChild("id").getText();
+        this.name = DeEntifyStrings.deEntifyXML(element.getChild("name").getText());
+        this.id = DeEntifyStrings.deEntifyXML(element.getChild("id").getText());
         if (element.getChild("description") != null) {
             description = DeEntifyStrings.deEntifyXML(element.getChildText("description"));
         }
-        Element subtaskIdsElement = element.getChild(SUBTASKS_ELEMENT_NAME);
-        if (subtaskIdsElement != null) {
-            subtaskIds.addAll(XmlSerializationUtils.elementToStringList(subtaskIdsElement));
+        Element parentTaskIdElement = element.getChild("parentTaskId");
+        if (parentTaskIdElement != null) {
+            parentTaskId = DeEntifyStrings.deEntifyXML(parentTaskIdElement.getText());
         }
     }
 

@@ -1,6 +1,8 @@
 package com.fragorl.timetracker.jobs;
 
 /**
+ * Called when the active job has changed
+ *
  * @author Alex
  * @version $Id$
  *          <p/>

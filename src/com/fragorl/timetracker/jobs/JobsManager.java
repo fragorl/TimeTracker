@@ -6,10 +6,8 @@ import com.google.common.base.Function;
 import com.google.common.collect.Lists;
 import com.sun.istack.internal.Nullable;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
+import java.net.CookieStore;
+import java.util.*;
 
 /**
  * @author Alex
@@ -29,12 +27,14 @@ public class JobsManager {
 
     private List<JobsChangedListener> jobsChangedListeners;
     private List<ActiveJobChangedListener> activeJobChangedListeners;
+    private List<JobsAlteredListener> jobsAlteredListeners;
     private List<Job> allJobsAtLastSync;
     private @Nullable String activeJobIdAtLastSync;
 
     JobsManager() {
         jobsChangedListeners = Collections.synchronizedList(new ArrayList<>());
         activeJobChangedListeners = Collections.synchronizedList(new ArrayList<>());
+        jobsAlteredListeners = Collections.synchronizedList(new ArrayList<>());
         allJobsAtLastSync = new ArrayList<>();
         activeJobIdAtLastSync = null;
     }
@@ -92,6 +92,15 @@ public class JobsManager {
     private List<ActiveJobChangedListener> getActiveJobChangedListenersInternal() {
         return activeJobChangedListeners;
     }
+
+    public static List<JobsAlteredListener> getJobsAlteredListeners() {
+        return getInstance().getJobsAlteredListenersInternal();
+    }
+
+    private List<JobsAlteredListener> getJobsAlteredListenersInternal() {
+        return jobsAlteredListeners;
+    }
+
 
     public static void syncJobs() {
         getInstance().syncJobsInternal();
@@ -163,6 +172,12 @@ public class JobsManager {
         }
     }
 
+    private synchronized void fireJobsAlteredListeners(Map<Job, Job> changes) {
+        for (JobsAlteredListener jobsAlteredListener: jobsAlteredListeners) {
+            jobsAlteredListener.jobsAltered(changes);
+        }
+    }
+
     public static void addTimeSegmentForJob(String jobId, TimeSegment timeWorked) {
         getInstance().addTimeSegentForJobInternal(jobId, timeWorked);
     }
@@ -171,7 +186,17 @@ public class JobsManager {
         PersistenceManager.saveTimeWorkedSegment(jobId, timeWorked);
     }
 
+    // subtasks
+//    public static void addSubtaskToJob(String jobId, String name, String description) {
+//        getInstance().addSubtaskToJobInternal(jobId, name, description);
+//    }
+//
+//    private void addSubtaskToJobInternal(String jobId, String name, String description) {
+//        PersistenceManager.addSubtask(jobId, name, description);
+//    }
+
     private static JobToIdTransformer JOB_TO_ID_TRANSFORMER = new JobToIdTransformer();
+
     private static class JobToIdTransformer implements Function<Job, String> {
         @Override
         public String apply(Job job) {

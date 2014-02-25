@@ -44,6 +44,7 @@ public class MainPanel extends JPanel {
     private Timer timer;
     private MainBoxJobsChangedListener jobsChangedListener;
     private MainBoxActiveJobChangedListener activeJobChangedListener;
+    private MainBoxJobsAlteredListener jobsAlteredListener;
     private JobsPanel jobsPanel;
     private boolean isPaused;
 
@@ -51,6 +52,7 @@ public class MainPanel extends JPanel {
         super(new BorderLayout());
         jobsChangedListener = new MainBoxJobsChangedListener();
         activeJobChangedListener = new MainBoxActiveJobChangedListener();
+        jobsAlteredListener = new MainBoxJobsAlteredListener();
         jobsPanel = new JobsPanel();
         isPaused = false;
         add(jobsPanel, BorderLayout.NORTH);
@@ -109,7 +111,6 @@ public class MainPanel extends JPanel {
     }
 
     private class MainBoxJobsChangedListener implements JobsChangedListener {
-
         @Override
         public void jobsChanged() {
             List<Job> jobs = new ArrayList<>(JobsManager.getJobs());
@@ -121,11 +122,21 @@ public class MainPanel extends JPanel {
     }
 
     private class MainBoxActiveJobChangedListener implements ActiveJobChangedListener {
-
         @Override
         public void activeJobChanged() {
             @Nullable String activeJobId = JobsManager.getActiveJobId();
             jobsPanel.newActiveJobSelected(activeJobId);
+        }
+    }
+
+    public JobsAlteredListener getJobsAlteredListener() {
+        return jobsAlteredListener;
+    }
+
+    private class MainBoxJobsAlteredListener implements JobsAlteredListener {
+        @Override
+        public void jobsAltered(Map<Job, Job> oldJobToNewJob) {
+
         }
     }
 
@@ -358,21 +369,22 @@ public class MainPanel extends JPanel {
 
             private class SubtasksBottomMenuActionsPanel extends JPanel {
 
-                private JButton addSubtasksButton;
-                private JButton expandButton;
-                private JButton collapseButton;
+//                private JButton addSubtasksButton;
+//                private JButton expandButton;
+//                private JButton collapseButton;
                 private List<JButton> buttons;
                 private Box boxForButtons;
 
                 private SubtasksBottomMenuActionsPanel() {
                     buttons = Arrays.asList(
-                        addSubtasksButton = new JButton("Add subtasks..."),
-                        expandButton = new JButton("View subtasks"),
-                        collapseButton = new JButton("Collapse")
+                            // subtasks
+//                        addSubtasksButton = new JButton("Add subtasks..."),
+//                        expandButton = new JButton("View subtasks"),
+//                        collapseButton = new JButton("Collapse")
                     );
-                    addSubtasksButton.setOpaque(false);
-                    expandButton.setOpaque(false);
-                    collapseButton.setOpaque(false);
+//                    addSubtasksButton.setOpaque(false);
+//                    expandButton.setOpaque(false);
+//                    collapseButton.setOpaque(false);
                     setLayout(new BoxLayout(this, BoxLayout.X_AXIS));
                     add(Box.createHorizontalGlue());
                     boxForButtons = Box.createVerticalBox();
@@ -383,62 +395,68 @@ public class MainPanel extends JPanel {
                 }
 
                 private void initButtons() {
-                    if (!job.getSubtaskIds().isEmpty()) {
-                        putInCollapsedState();
-                    } else {
-                        putInSubtasksCanBeAddedState();
-                    }
+                    // once subtasks have been implemented...
+//                    if (!job.getSubtaskIds().isEmpty()) {
+//                        putInCollapsedState();
+//                    } else {
+//                        putInSubtasksCanBeAddedState();
+//                    }
                 }
 
-                private void putInCollapsedState() {
-                    removeAllButtonsFromBox();
-                    boxForButtons.add(expandButton);
-                    panelChanged();
-                }
+                // subtasks
+//                private void putInCollapsedState() {
+//                    removeAllButtonsFromBox();
+//                    boxForButtons.add(expandButton);
+//                    panelChanged();
+//                }
+//
+//                private void putInExpandedState() {
+//                    removeAllButtonsFromBox();
+//                    boxForButtons.add(collapseButton);
+//                    panelChanged();
+//                }
+//
+//                private void putInSubtasksCanBeAddedState() {
+//                    removeAllButtonsFromBox();
+//                    boxForButtons.add(addSubtasksButton);
+//                    panelChanged();
+//                }
 
-                private void putInExpandedState() {
-                    removeAllButtonsFromBox();
-                    boxForButtons.add(collapseButton);
-                    panelChanged();
-                }
+//                private void removeAllButtonsFromBox() {
+//                    for (JButton button : buttons) {
+//                        boxForButtons.remove(button);
+//                    }
+//                }
+//
+//                private void panelChanged() {
+//                    invalidate();
+//                    repaint();
+//                }
 
-                private void putInSubtasksCanBeAddedState() {
-                    removeAllButtonsFromBox();
-                    boxForButtons.add(addSubtasksButton);
-                    panelChanged();
-                }
-
-                private void removeAllButtonsFromBox() {
-                    for (JButton button : buttons) {
-                        boxForButtons.remove(button);
-                    }
-                }
-
-                private void panelChanged() {
-                    invalidate();
-                    repaint();
-                }
-
-                private final ActionListener addSubtasksAction = new ActionListener() {
-                    @Override
-                    public void actionPerformed(ActionEvent e) {
-
-                    }
-                };
-
-                private final ActionListener expandAction = new ActionListener() {
-                    @Override
-                    public void actionPerformed(ActionEvent e) {
-                        putInExpandedState();
-                    }
-                };
-
-                private final ActionListener collapseAction = new ActionListener() {
-                    @Override
-                    public void actionPerformed(ActionEvent e) {
-                        putInCollapsedState();
-                    }
-                };
+                // subtasks
+//                private final ActionListener addSubtasksAction = new ActionListener() {
+//                    @Override
+//                    public void actionPerformed(ActionEvent e) {
+//                        @Nullable NewJobDetails newSubtaskDetails = getNewJobFromDialog("New Subtask");
+//                        if (newSubtaskDetails != null) {
+//                            JobsManager.addSubtaskToJob();
+//                        }
+//                    }
+//                };
+//
+//                private final ActionListener expandAction = new ActionListener() {
+//                    @Override
+//                    public void actionPerformed(ActionEvent e) {
+//                        putInExpandedState();
+//                    }
+//                };
+//
+//                private final ActionListener collapseAction = new ActionListener() {
+//                    @Override
+//                    public void actionPerformed(ActionEvent e) {
+//                        putInCollapsedState();
+//                    }
+//                };
             }
         }
     }
@@ -479,17 +497,35 @@ public class MainPanel extends JPanel {
     private class NewJobAction implements ActionListener {
         @Override
         public void actionPerformed(ActionEvent e) {
-            NewJobBox newJobBox = new NewJobBox();
-            final JComponent[] inputs = new JComponent[]{
-                    newJobBox
-            };
-            if (JOptionPane.CANCEL_OPTION != JOptionPane.showConfirmDialog(GraphicsUtils.getMainFrame(), inputs, "New Job", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE)) {
-                String newJobName = newJobBox.getJobName();
-                String newJobDescription = newJobBox.getDescription();
-                JobsManager.createJob(newJobName, newJobDescription);
+            @Nullable NewJobDetails newJobDetails = getNewJobFromDialog("New Job");
+            if (newJobDetails != null) {
+                JobsManager.createJob(newJobDetails.name, newJobDetails.description);
                 MainPanel.this.validate();
                 MainPanel.this.repaint();
             }
+        }
+    }
+
+    private @Nullable NewJobDetails getNewJobFromDialog(String title) {
+        NewJobBox newJobBox = new NewJobBox();
+        final JComponent[] inputs = new JComponent[]{
+                newJobBox
+        };
+        if (JOptionPane.CANCEL_OPTION != JOptionPane.showConfirmDialog(GraphicsUtils.getMainFrame(), inputs, title, JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE)) {
+            String newJobName = newJobBox.getJobName();
+            String newJobDescription = newJobBox.getDescription();
+            return new NewJobDetails(newJobName, newJobDescription);
+        }
+        return null;
+    }
+
+    private static class NewJobDetails {
+        public final String name;
+        public final String description;
+
+        private NewJobDetails(String name, String description) {
+            this.name = name;
+            this.description = description;
         }
     }
 

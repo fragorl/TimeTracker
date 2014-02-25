@@ -33,6 +33,7 @@ public class Main {
         // initialize and do JobsManager stuff
         JobsManager.getJobsChangedListeners().add(mainPanel.getJobsChangedListener());
         JobsManager.getActiveJobChangedListeners().add(mainPanel.getActiveJobChangedListener());
+        JobsManager.getJobsAlteredListeners().add(mainPanel.getJobsAlteredListener());
         JobsManager.syncJobs();
         JobsManager.syncActiveJob();
 
