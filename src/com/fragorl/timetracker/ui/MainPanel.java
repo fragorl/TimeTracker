@@ -6,11 +6,11 @@ import com.fragorl.timetracker.time.TimeSegment;
 import com.fragorl.timetracker.util.ImageUtils;
 import com.fragorl.timetracker.util.TimeUtils;
 import com.google.common.collect.ImmutableMap;
-import com.sun.istack.internal.Nullable;
 import net.miginfocom.layout.AC;
 import net.miginfocom.layout.LC;
 import net.miginfocom.swing.MigLayout;
 
+import javax.annotation.Nullable;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
 import java.awt.*;

@@ -4,8 +4,8 @@ import com.fragorl.timetracker.persistence.PersistenceManager;
 import com.fragorl.timetracker.time.TimeSegment;
 import com.google.common.base.Function;
 import com.google.common.collect.Lists;
-import com.sun.istack.internal.Nullable;
 
+import javax.annotation.Nullable;
 import java.net.CookieStore;
 import java.util.*;
 

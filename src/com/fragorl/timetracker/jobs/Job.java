@@ -8,9 +8,9 @@ import com.fragorl.timetracker.util.DeEntifyStrings;
 import com.fragorl.timetracker.util.EntifyStrings;
 import com.fragorl.timetracker.util.RangeUtils;
 import com.fragorl.timetracker.util.XmlSerializationUtils;
-import com.sun.istack.internal.Nullable;
 import org.jdom2.Element;
 
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,7 +44,7 @@ public class Job implements XmlSerializable {
         return id;
     }
 
-    public String getDescription() {
+    public @Nullable String getDescription() {
         return description;
     }
 

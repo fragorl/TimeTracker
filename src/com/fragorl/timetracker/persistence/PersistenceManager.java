@@ -9,7 +9,6 @@ import com.fragorl.timetracker.time.TimeSegment;
 import com.fragorl.timetracker.time.TimeSerialization;
 import com.fragorl.timetracker.util.SystemUtils;
 import com.google.common.collect.ImmutableMap;
-import com.sun.istack.internal.Nullable;
 import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.JDOMException;
@@ -17,6 +16,7 @@ import org.jdom2.input.SAXBuilder;
 import org.jdom2.output.Format;
 import org.jdom2.output.XMLOutputter;
 
+import javax.annotation.Nullable;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
